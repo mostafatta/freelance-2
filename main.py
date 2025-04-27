@@ -173,9 +173,22 @@ wait = WebDriverWait(driver, 15)
 def get_product_seller(url, product_name):
     try:
         # Open product page in new tab
+        #Nudges_nudgeText__cWC9q Nudges_isPdp__uEFfk
         driver.execute_script("window.open('');")
         driver.switch_to.window(driver.window_handles[1])
         driver.get(url)
+        amount_sold = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".Nudges_nudgeText__cWC9q.Nudges_isPdp__uEFfk")))
+        amount_sold = amount_sold.text.strip() if amount_sold else "Not found"
+        #PriceOffer_priceNowText__08sYH
+        price = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".PriceOffer_priceNowText__08sYH")))
+        price = price.text.strip() if price else "Not found"
+        #RatingPreviewStar_text__ZO_T7
+        rating = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".RatingPreviewStar_text__ZO_T7")))
+        rating = rating.text.strip() if rating else "Not found"
+        #RatingPreviewStar_countText__MdxCQ
+        rating_count = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".RatingPreviewStar_countText__MdxCQ")))
+        rating_count = rating_count.text.strip() if rating_count else "Not found"
+        product_url = url
         
         # Collect seller information
         try:
@@ -201,6 +214,7 @@ def get_product_seller(url, product_name):
                     # Collect geolocation
                     geo = seller_page_soup.find('div', class_='SellerDetails_profileAddress__F8cju')
                     geolocation = geo.find('a').text.strip() if geo and geo.find('a') else "Not found"
+                    google_map_link = geo.find('a')['href'] if geo and geo.find('a') else "Not found"
                     
                     # Collect phone number
                     phone_div = seller_page_soup.find('div', class_='SellerDetails_profileCall__kQnQg')
@@ -211,12 +225,15 @@ def get_product_seller(url, product_name):
                     email = email_div.find('a').text.strip() if email_div and email_div.find('a') else "Not found"
                     
                     # Collect rating
-                    rating_span = seller_page_soup.find('span', class_='Skeleton_skeletonWrapper__QaWR9Skeleton_wrapper__dQPwT')
-                    rating = rating_span.text.strip() if rating_span else "Not found"
+                    # rating_span = seller_page_soup.find('span', class_='Skeleton_skeletonWrapper__QaWR9Skeleton_wrapper__dQPwT')
+                    # rating = rating_span.text.strip() if rating_span else "Not found"
                     
-                    # Collect number of ratings
-                    number_of_ratings_span = seller_page_soup.find('span', class_='Skeleton_skeletonWrapper__QaWR9 Skeleton_wrapper__dQPwT')
-                    number_of_ratings = number_of_ratings_span.text.strip() if number_of_ratings_span else "Not found"
+                    # # Collect number of ratings
+                    # number_of_ratings_span = seller_page_soup.find('span', class_='Skeleton_skeletonWrapper__QaWR9 Skeleton_wrapper__dQPwT')
+                    # number_of_ratings = number_of_ratings_span.text.strip() if number_of_ratings_span else "Not found"
+                    spans = seller_page_soup.find_all('span', class_='Skeleton_skeletonWrapper__QaWR9 Skeleton_wrapper__dQPwT')
+                    rating = spans[0].text.strip() if len(spans) > 0 else "Not found"
+                    number_of_ratings = spans[1].text.strip() if len(spans) > 1 else "Not found"
                     
                     # Collect number of clients
                     number_of_clients_div = seller_page_soup.find('div', class_='SellerCustomersCard_customerValue__1pC30')
@@ -225,9 +242,15 @@ def get_product_seller(url, product_name):
                     # Append product and seller details to the list
                     all_products.append({
                         'اسم المنتج': product_name,
+                        'سعر المنتج': price,
+                        'عدد مبيعات المنتج مؤخرا': amount_sold,
+                        "تقييم المنتج": rating,
+                        "عدد تقييمات المنتج": rating_count,
+                        "رابط المنتج": product_url,
                         'اسم البائع': seller_name,
                         'رابط البائع': seller_url,
                         'الموقع الجغرافي': geolocation,
+                        'رابط الموقع الجغرافي': google_map_link,
                         'رقم الهاتف': phone_number,
                         'البريد الإلكتروني': email,
                         'التقييم': rating,
