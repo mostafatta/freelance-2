@@ -12,6 +12,7 @@ import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
+import logging
 
 class NoonScraperGUI:
     def __init__(self, root):
@@ -90,11 +91,46 @@ class NoonScraperGUI:
         
     def setup_driver(self):
         options = Options()
-        # options.add_argument("--headless=new")
-         
-        options.add_experimental_option("detach", True)
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        return WebDriverWait(self.driver, 15)
+        
+        # Headless configuration
+        options.add_argument("--headless=new")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        
+        # Make headless browser appear more like a regular user
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        
+        # Disable extensions and enable JavaScript
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-notifications")
+        
+        # Additional options to prevent detection
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        # Disable images to make scraping faster (optional)
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            "profile.default_content_setting_values.javascript": 1
+        }
+        options.add_experimental_option("prefs", prefs)
+        
+        try:
+            self.driver = webdriver.Chrome(
+                service=Service(ChromeDriverManager().install()),
+                options=options
+            )
+            
+            # Additional JavaScript evasions
+            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            
+            return WebDriverWait(self.driver, 20)  # Increased timeout
+        except Exception as e:
+            print(f"Error initializing driver: {e}")
+            raise
     
     def get_product_seller(self, url, product_name):
         try:
@@ -102,6 +138,8 @@ class NoonScraperGUI:
             self.driver.execute_script("window.open('');")
             self.driver.switch_to.window(self.driver.window_handles[1])
             self.driver.get(url)
+            time.sleep(2)  # Added delay for page load
+            
             divs = self.driver.find_elements(By.CLASS_NAME, "Nudges_nudgeText__cWC9q.Nudges_isPdp__uEFfk")
             
             target_div = None
@@ -246,8 +284,24 @@ class NoonScraperGUI:
             wait = self.setup_driver()
             
             search_url = f"https://www.noon.com/saudi-ar/search/?q={product_name.replace(' ', '%20')}"
-            self.driver.get(search_url)
-            wait.until(EC.presence_of_element_located((By.CLASS_NAME, "ProductBoxLinkHandler_linkWrapper__b0qZ9")))
+            
+            try:
+                self.driver.get(search_url)
+                # Wait for either the content or a potential error page
+                WebDriverWait(self.driver, 20).until(
+                    lambda d: d.find_elements(By.CLASS_NAME, "ProductBoxLinkHandler_linkWrapper__b0qZ9") or 
+                             d.find_elements(By.XPATH, "//*[contains(text(), 'Access Denied')]")
+                )
+                
+                # Check if we got an access denied message
+                if self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Access Denied')]"):
+                    raise Exception("تم حظر الوصول إلى الموقع (Access Denied)")
+                    
+            except Exception as e:
+                # Take screenshot for debugging
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                self.driver.save_screenshot(f"error_{timestamp}.png")
+                raise Exception(f"فشل تحميل الصفحة: {str(e)}")
             
             current_page = 1
             while len(self.seller_names) < max_sellers:
