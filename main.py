@@ -16,7 +16,7 @@ import threading
 class NoonScraperGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Noon Product Scraper")
+        self.root.title("جمع بيانات منتجات نون")
         self.root.geometry("500x400")
         
         # Variables
@@ -39,28 +39,28 @@ class NoonScraperGUI:
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Product name
-        ttk.Label(main_frame, text="Product Name:").grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
+        ttk.Label(main_frame, text="اسم المنتج:").grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
         product_entry = ttk.Entry(main_frame, textvariable=self.product_name, width=40)
         product_entry.grid(row=0, column=1, sticky=tk.EW, pady=(0, 5))
         
         # Number of sellers
-        ttk.Label(main_frame, text="Number of Sellers:").grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
+        ttk.Label(main_frame, text="عدد البائعين:").grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
         sellers_spin = ttk.Spinbox(main_frame, from_=1, to=50, textvariable=self.max_sellers, width=5)
         sellers_spin.grid(row=1, column=1, sticky=tk.W, pady=(0, 10))
         
         # Start button
-        start_btn = ttk.Button(main_frame, text="Start Scraping", command=self.start_scraping_thread)
+        start_btn = ttk.Button(main_frame, text="بدء الجمع", command=self.start_scraping_thread)
         start_btn.grid(row=2, column=0, columnspan=2, pady=(10, 20))
         
         # Progress bar
-        ttk.Label(main_frame, text="Progress:").grid(row=3, column=0, sticky=tk.W)
+        ttk.Label(main_frame, text="التقدم:").grid(row=3, column=0, sticky=tk.W)
         self.progress_bar = ttk.Progressbar(main_frame, orient=tk.HORIZONTAL, 
                                            length=300, mode='determinate',
                                            variable=self.progress_value)
         self.progress_bar.grid(row=3, column=1, sticky=tk.EW, pady=(0, 5))
         
         # Status label
-        self.status_label = ttk.Label(main_frame, text="Ready to start", foreground="gray")
+        self.status_label = ttk.Label(main_frame, text="جاهز للبدء", foreground="gray")
         self.status_label.grid(row=4, column=0, columnspan=2, pady=(10, 0))
         
         # Configure grid weights
@@ -69,24 +69,24 @@ class NoonScraperGUI:
     def start_scraping_thread(self):
         if not self.scraping:
             if not self.product_name.get():
-                messagebox.showerror("Error", "Please enter a product name")
+                messagebox.showerror("خطأ", "الرجاء إدخال اسم المنتج")
                 return
                 
             self.scraping = True
             self.all_products = []
             self.seller_names = set()
             self.progress_value.set(0)
-            self.status_label.config(text="Starting...", foreground="black")
+            self.status_label.config(text="جاري البدء...", foreground="black")
             
             # Start scraping in a separate thread
             threading.Thread(target=self.scrape_noon, daemon=True).start()
         else:
-            messagebox.showinfo("Info", "Scraping is already in progress")
+            messagebox.showinfo("معلومة", "جاري جمع البيانات بالفعل")
     
     def update_progress(self, value, max_value):
         self.progress_value.set(value)
         self.progress_bar['maximum'] = max_value
-        self.status_label.config(text=f"Found {value} of {max_value} sellers")
+        self.status_label.config(text=f"تم العثور على {value} من {max_value} بائعين")
         
     def setup_driver(self):
         options = Options()
@@ -242,7 +242,7 @@ class NoonScraperGUI:
         max_sellers = self.max_sellers.get()
         
         try:
-            self.root.after(0, self.status_label.config, {"text": "Setting up browser...", "foreground": "black"})
+            self.root.after(0, self.status_label.config, {"text": "جاري إعداد المتصفح...", "foreground": "black"})
             wait = self.setup_driver()
             
             search_url = f"https://www.noon.com/saudi-ar/search/?q={product_name.replace(' ', '%20')}"
@@ -253,7 +253,7 @@ class NoonScraperGUI:
             while len(self.seller_names) < max_sellers:
                 print(f"🔄 Processing page {current_page}... (Found {len(self.seller_names)}/{max_sellers} sellers)")
                 self.root.after(0, self.status_label.config, 
-                               {"text": f"Processing page {current_page}... Found {len(self.seller_names)}/{max_sellers} sellers", 
+                               {"text": f"جاري معالجة الصفحة {current_page}... تم العثور على {len(self.seller_names)}/{max_sellers} بائعين", 
                                 "foreground": "black"})
                 
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -264,7 +264,7 @@ class NoonScraperGUI:
 
                 if not product_cards:
                     self.root.after(0, self.status_label.config, 
-                                  {"text": "No products found on this page", "foreground": "red"})
+                                  {"text": "لا توجد منتجات في هذه الصفحة", "foreground": "red"})
                     print("❌ No products found on this page.")
                     break
 
@@ -293,13 +293,13 @@ class NoonScraperGUI:
                         time.sleep(3)
                     except Exception as e:
                         self.root.after(0, self.status_label.config, 
-                                        {"text": "No more pages available", "foreground": "red"})
+                                        {"text": "لا توجد صفحات أخرى متاحة", "foreground": "red"})
                         print(f"❌ Next button not found or can't be clicked: {e}")
                         break
 
         except Exception as e:
             self.root.after(0, self.status_label.config, 
-                           {"text": f"Error: {str(e)}", "foreground": "red"})
+                           {"text": f"خطأ: {str(e)}", "foreground": "red"})
             print(f"Error loading page: {e}")
 
         finally:
@@ -312,14 +312,14 @@ class NoonScraperGUI:
                 with pd.ExcelWriter(file_name, engine='openpyxl') as writer:
                     df.to_excel(writer, index=False)
                 
-                success_msg = f"Successfully collected {len(self.seller_names)} sellers. Data saved to {file_name}"
+                success_msg = f"تم جمع بيانات {len(self.seller_names)} بائع بنجاح. تم الحفظ في ملف {file_name}"
                 self.root.after(0, self.status_label.config, 
                               {"text": success_msg, "foreground": "green"})
                 print(f"✅ {success_msg}")
-                messagebox.showinfo("Success", success_msg)
+                messagebox.showinfo("نجاح", success_msg)
             else:
                 self.root.after(0, self.status_label.config, 
-                              {"text": "No data collected", "foreground": "red"})
+                              {"text": "لم يتم جمع أي بيانات", "foreground": "red"})
                 print("❌ No data collected to save")
 
             self.scraping = False
@@ -330,4 +330,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = NoonScraperGUI(root)
     root.mainloop()
-
