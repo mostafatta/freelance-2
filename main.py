@@ -9,7 +9,10 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import pandas as pd
 import time
-import datetime
+
+# Get user inputs
+product_name = input("Enter the product name to search for: ")
+max_sellers = int(input("Enter the number of unique sellers you want to scrape: "))
 
 # Setup Chrome options
 options = Options()
@@ -29,33 +32,44 @@ def get_product_seller(url, product_name):
         
         target_div = None
 
-        # Loop through each div to find the one containing the text "مؤخرًا"
         for div in divs:
             try:
-                # Check if the substring "مؤخرًا" exists in the div's text
                 if "مؤخرًا" in div.text:
                     target_div = div
-                    break  # Stop once the target div is found
+                    break
             except Exception as e:
                 print(f"Error while processing div: {e}")
                 continue
 
+        amount_sold = "Not found"
         if target_div:
-            # Strip any extra spaces or characters, and assign the result to amount_sold
             amount_sold = target_div.text.strip()
             print(amount_sold)
         else:
             print("Target div not found.")
         
         # Price and other details extraction
-        price = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".PriceOffer_priceNowText__08sYH")))
-        price = price.text.strip() if price else "Not found"
+        try:
+            price = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".PriceOffer_priceNowText__08sYH")))
+            price = price.text.strip() if price else "Not found"
+        except Exception as e:
+            price = "Not found"
+            print(f"Error finding price: {e}")
 
-        rating = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".RatingPreviewStar_text__ZO_T7")))
-        rating = rating.text.strip() if rating else "Not found"
+        try:
+            rating = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".RatingPreviewStar_text__ZO_T7")))
+            rating = rating.text.strip() if rating else "Not found"
+        except Exception as e:
+            rating = "Not found"
+            print(f"Error finding rating: {e}")
 
-        rating_count = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".RatingPreviewStar_countText__MdxCQ")))
-        rating_count = rating_count.text.strip() if rating_count else "Not found"
+        try:
+            rating_count = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".RatingPreviewStar_countText__MdxCQ")))
+            rating_count = rating_count.text.strip() if rating_count else "Not found"
+        except Exception as e:
+            rating_count = "Not found"
+            print(f"Error finding rating count: {e}")
+        
         product_url = url
         
         # Collect seller information
@@ -70,38 +84,34 @@ def get_product_seller(url, product_name):
                 href = a_tag.get_attribute('href')
                 seller_url = href if href else None
 
-                if seller_url:  # Only open seller page if URL exists
+                if seller_url:
                     driver.execute_script("window.open('');")
                     driver.switch_to.window(driver.window_handles[2])
                     driver.get(seller_url)
                     time.sleep(3)
 
-                    # Scrape the seller page for additional details
+                    # Scrape the seller page
                     seller_page_soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-                    # Collect geolocation
+                    # Collect seller details
                     geo = seller_page_soup.find('div', class_='SellerDetails_profileAddress__F8cju')
                     geolocation = geo.find('a').text.strip() if geo and geo.find('a') else "Not found"
                     google_map_link = geo.find('a')['href'] if geo and geo.find('a') else "Not found"
                     
-                    # Collect phone number
                     phone_div = seller_page_soup.find('div', class_='SellerDetails_profileCall__kQnQg')
                     phone_number = phone_div.find('a').text.strip() if phone_div and phone_div.find('a') else "Not found"
                     
-                    # Collect email
                     email_div = seller_page_soup.find('div', class_='SellerDetails_profileEmail__H3znZ')
                     email = email_div.find('a').text.strip() if email_div and email_div.find('a') else "Not found"
                     
-                    # Collect rating
                     spans = seller_page_soup.find_all('span', class_='Skeleton_skeletonWrapper__QaWR9 Skeleton_wrapper__dQPwT')
-                    rating = spans[0].text.strip() if len(spans) > 0 else "Not found"
+                    seller_rating = spans[0].text.strip() if len(spans) > 0 else "Not found"
                     number_of_ratings = spans[1].text.strip() if len(spans) > 1 else "Not found"
                     
-                    # Collect number of clients
                     number_of_clients_div = seller_page_soup.find('div', class_='SellerCustomersCard_customerValue__1pC30')
                     number_of_clients = number_of_clients_div.text.strip() if number_of_clients_div else "Not found"
 
-                    # Append product and seller details to the list
+                    # Append product and seller details
                     all_products.append({
                         'اسم المنتج': product_name,
                         'سعر المنتج': price,
@@ -115,16 +125,20 @@ def get_product_seller(url, product_name):
                         'رابط الموقع الجغرافي': google_map_link,
                         'رقم الهاتف': phone_number,
                         'البريد الإلكتروني': email,
-                        'التقييم': rating,
-                        'عدد التقييمات': number_of_ratings,
-                        'عدد العملاء': number_of_clients,
+                        'تقييم البائع': seller_rating,
+                        'عدد تقييمات البائع': number_of_ratings,
+                        'عدد عملاء البائع': number_of_clients,
                     })
 
                     seller_names.add(seller_name)
 
-                    # Close seller tab and switch back to product tab
+                    # Close seller tab and switch back
                     driver.close()
                     driver.switch_to.window(driver.window_handles[1])
+                    
+                    # Check if we've reached the desired number of sellers
+                    if len(seller_names) >= max_sellers:
+                        return True
                 else:
                     print("❌ No seller URL found")
             else:
@@ -133,76 +147,84 @@ def get_product_seller(url, product_name):
         except Exception as e:
             print(f"❌ Error finding seller name: {e}")
 
-        # Close product tab and switch back to main tab
+        # Close product tab and switch back
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
+        return False
 
     except Exception as e:
         print(f"❌ Error extracting seller data: {e}")
-        # Ensure we don't leave stray tabs open
         if len(driver.window_handles) > 1:
             driver.close()
             driver.switch_to.window(driver.window_handles[0])
+        return False
 
-# Main scraping loop
-try:
-    driver.get("https://www.noon.com/saudi-ar/search/?q=افالو فارما")
-    wait.until(EC.presence_of_element_located((By.CLASS_NAME, "ProductBoxLinkHandler_linkWrapper__b0qZ9")))
-    
-    current_page = 1
-    max_page = 1  # Max pages to scrape
-    while current_page <= max_page:
-        print(f"🔄 Processing page {current_page}...")
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2)
+# Main scraping function
+def scrape_noon(product_name, max_sellers):
+    try:
+        search_url = f"https://www.noon.com/saudi-ar/search/?q={product_name.replace(' ', '%20')}"
+        driver.get(search_url)
+        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "ProductBoxLinkHandler_linkWrapper__b0qZ9")))
+        
+        current_page = 1
+        while len(seller_names) < max_sellers:
+            print(f"🔄 Processing page {current_page}... (Found {len(seller_names)}/{max_sellers} sellers)")
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)
 
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        product_cards = soup.find_all('div', class_="ProductBoxLinkHandler_linkWrapper__b0qZ9")
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            product_cards = soup.find_all('div', class_="ProductBoxLinkHandler_linkWrapper__b0qZ9")
 
-        if not product_cards:
-            print("❌ No products found on this page.")
-            break
+            if not product_cards:
+                print("❌ No products found on this page.")
+                break
 
-        for card in product_cards:
-            product_name_element = card.find('h2', {"data-qa": "product-name"})
-            product_name = product_name_element.text.strip() if product_name_element else "Unknown Product"
-            link = card.find('a', class_='ProductBoxLinkHandler_productBoxLink__FPhjp')
-            href = link.get('href') if link else None
-            product_url = f"https://www.noon.com{href}" if href else None
+            for card in product_cards:
+                if len(seller_names) >= max_sellers:
+                    break
+                    
+                product_name_element = card.find('h2', {"data-qa": "product-name"})
+                current_product_name = product_name_element.text.strip() if product_name_element else "Unknown Product"
+                link = card.find('a', class_='ProductBoxLinkHandler_productBoxLink__FPhjp')
+                href = link.get('href') if link else None
+                product_url = f"https://www.noon.com{href}" if href else None
 
-            if product_url:
-                get_product_seller(product_url, product_name)
+                if product_url:
+                    if get_product_seller(product_url, current_product_name):
+                        break  # Reached desired number of sellers
 
-        # Navigate to the next page
-        try:
-            next_button = driver.find_element(By.CSS_SELECTOR, 'a[aria-label="Next page"]')
-            driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-            time.sleep(1)
-            next_button.click()
-            current_page += 1
-            time.sleep(3)  # Wait for page to load
-        except Exception as e:
-            print(f"❌ Next button not found or can't be clicked: {e}")
-            break
+            # Navigate to next page if needed
+            if len(seller_names) < max_sellers:
+                try:
+                    next_button = driver.find_element(By.CSS_SELECTOR, 'a[aria-label="Next page"]')
+                    driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
+                    time.sleep(1)
+                    next_button.click()
+                    current_page += 1
+                    time.sleep(3)
+                except Exception as e:
+                    print(f"❌ Next button not found or can't be clicked: {e}")
+                    break
 
-except Exception as e:
-    print(f"Error loading page: {e}")
+    except Exception as e:
+        print(f"Error loading page: {e}")
 
-finally:
-    # Save data to Excel file
-    if all_products:
-        df = pd.DataFrame(all_products)
-    
-        # Generate a unique file name using the current timestamp
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        file_name = f'product_sellers_data_{timestamp}.xlsx'
-    
-        # For Arabic text in Excel, we'll use utf-8-sig encoding when saving
-        with pd.ExcelWriter(file_name, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False)
-    
-        print(f"✅ All data saved to {file_name}")
-    else:
-        print("❌ No data collected to save")
+    finally:
+        # Save data
+        if all_products:
+            df = pd.DataFrame(all_products)
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f'noon_{product_name}_sellers_data_{timestamp}.xlsx'  # Fixed the issue here
+            
+            with pd.ExcelWriter(file_name, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False)
+            
+            print(f"✅ Successfully collected {len(seller_names)} sellers. Data saved to {file_name}")
+        else:
+            print("❌ No data collected to save")
 
-driver.quit()
+        driver.quit()
+
+# Start scraping
+print(f"🚀 Starting Noon scraper for: '{product_name}' (Target: {max_sellers} sellers)")
+scrape_noon(product_name, max_sellers)
