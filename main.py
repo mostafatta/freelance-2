@@ -159,6 +159,31 @@ def get_product_seller(url, product_name):
             driver.switch_to.window(driver.window_handles[0])
         return False
 
+# Function to repeatedly click the 'Check availability' and 'OK' buttons
+def repeatedly_click_buttons():
+    try:
+        start_time = time.time()
+        while time.time() - start_time < 300:  # 5 minutes
+            try:
+                # Find and click 'Check availability' button
+                check_availability_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Check availability')]")))
+                check_availability_button.click()
+                print("Clicked 'Check availability' button.")
+
+                # Wait for the 'OK' button to become clickable and then click it
+                ok_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'OK')]")))
+                ok_button.click()
+                print("Clicked 'OK' button.")
+                
+                time.sleep(2)  # Wait 2 seconds before repeating
+
+            except Exception as e:
+                print(f"❌ Error while clicking buttons: {e}")
+                break
+
+    except Exception as e:
+        print(f"❌ Error in the repeating click function: {e}")
+
 # Main scraping function
 def scrape_noon(product_name, max_sellers):
     try:
